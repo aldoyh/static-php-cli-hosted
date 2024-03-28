@@ -10,41 +10,45 @@ env:
 
 jobs:
   download:
-    name: Archive downloads to zip
+    name: "Archive downloads to zip"
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php-version: [ "7.4", "8.0", "8.1", "8.2" ]
+        php-version: [ "7.4", "8.0", "8.1", "8.2", "8.3" ]
     steps:
       - name: "Checkout"
         uses: "actions/checkout@v4"
         with:
           repository: crazywhalecc/static-php-cli
 
-      # Cache composer dependencies
-      - id: cache-composer-deps
-        uses: actions/cache@v3
+      - name: "Download SPC bin artifact for self-hosted runners"
+        uses: dawidd6/action-download-artifact@v2
         with:
-          path: vendor
-          key: composer-dependencies
+          repo: crazywhalecc/static-php-cli
+          branch: main
+          workflow: release-build.yml
+          name: "spc-linux-x86_64"
 
-      # If there's no Composer cache, install dependencies
-      - if: steps.cache-composer-deps.outputs.cache-hit != 'true'
-        run: composer update --no-dev
+      - name: "Validate SPC bin"
+        run: |
+          chmod +x spc
+          ./spc --version
+
 
       # If there's no dependencies cache, fetch sources, with or without debug
-      - if: steps.cache-download.outputs.cache-hit != 'true'
+      - name: "Download all sources"
         run: |
-          ./bin/spc download --with-php=${{ matrix.php-version }} --all --debug
-          ./bin/spc doctor --auto-fix
+          ./spc download --with-php=${{ matrix.php-version }} --all --debug
+          ./spc doctor --auto-fix
 
       # Upload downloaded files
-      - uses: actions/upload-artifact@v3
+      - name: "Upload action artifacts"
+        uses: actions/upload-artifact@v3
         with:
           name: download-files-${{ matrix.php-version }}
           path: downloads/
 
-      - name: Archive downloads
+      - name: "Archive downloads as zip"
         run: |
           cd downloads/
           zip -r download-files-${{ matrix.php-version }}.zip .
@@ -52,7 +56,8 @@ jobs:
           mv download-files-${{ matrix.php-version }}.zip ../downloads-archive/
           cd ..
 
-      - uses: easingthemes/ssh-deploy@main
+      - name: "Deploy to self-hosted server"
+        uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SERVER_SECRET_KEY }}
           ARGS: "-rltgoDzvO"

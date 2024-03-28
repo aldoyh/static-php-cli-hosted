@@ -1,21 +1,14 @@
-name: Build Self-Hosted PHP Binary (common)
+name: Build Self-Hosted PHP Binary (bulk)
 
 on:
   workflow_dispatch:
-    inputs:
-      add_extensions:
-        description: extensions to add (comma start if add)
-        type: string
-        default: ''
-      without_deploy:
-        type: boolean
-        default: false
 
 jobs:
   build-release-artifacts:
     name: "Build ${{ matrix.php-version }} on ${{ matrix.operating-system }}"
     runs-on: ${{ matrix.operating-system }}
     strategy:
+      fail-fast: false
       matrix:
         php-version:
           - "8.0"
@@ -28,7 +21,7 @@ jobs:
           - "debian-arm64-self-hosted"
           - "macos-14"
         extensions:
-          - bcmath,bz2,calendar,ctype,curl,dom,exif,fileinfo,filter,ftp,gd,gmp,iconv,xml,mbstring,mbregex,mysqlnd,openssl,pcntl,pdo,pdo_mysql,pdo_sqlite,phar,posix,redis,session,simplexml,soap,sockets,sqlite3,tokenizer,xmlwriter,xmlreader,zlib,zip
+          - apcu,bcmath,bz2,calendar,ctype,curl,dba,dom,event,exif,fileinfo,filter,ftp,gd,gmp,iconv,imagick,imap,intl,mbregex,mbstring,mysqli,mysqlnd,opcache,openssl,pcntl,pdo,pdo_mysql,pgsql,phar,posix,protobuf,readline,redis,session,shmop,simplexml,soap,sockets,sodium,sqlite3,swoole,swoole-hook-mysql,swoole-hook-pgsql,swoole-hook-sqlite,sysvmsg,sysvsem,sysvshm,tokenizer,xml,xmlreader,xmlwriter,xsl,zip,zlib
     
     steps:
       - name: "Checkout"
@@ -66,13 +59,13 @@ jobs:
         uses: actions/cache@v3
         with:
           path: downloads
-          key: php-${{ matrix.php-version }}-dependencies-for-common-extensions
+          key: php-${{ matrix.php-version }}-dependencies-for-bulk-extensions
       
       # If there's no dependencies cache, fetch sources
       - name: "Download sources"
         env:
           GITHUB_TOKEN: ${{ secrets.S_GITHUB_TOKEN }}
-        run: ./spc download --with-php=${{ matrix.php-version }} --for-extensions=${{ matrix.extensions }}${{ inputs.add_extensions }}
+        run: ./spc download --with-php=${{ matrix.php-version }} --for-extensions=${{ matrix.extensions }}
 
       - name: "Build library: ${{ matrix.library }}"
         run: |
@@ -84,7 +77,7 @@ jobs:
             ./spc install-pkg upx
             UPX=--with-upx-pack
           fi
-          ./spc build --build-cli --build-micro --build-fpm ${{ matrix.extensions }}${{ inputs.add_extensions }} --debug $UPX
+          ./spc build --build-cli --build-micro --build-fpm ${{ matrix.extensions }} --debug $UPX
           PHPVER=$(cat source/php-src/main/php_version.h | grep "PHP_VERSION " | awk -F\" '{print $2}')
           mkdir dist/
           tar -czf dist/php-$PHPVER-cli-$OS.tar.gz -C buildroot/bin/ php
@@ -96,8 +89,7 @@ jobs:
             cp buildroot/build-libraries.json dist/
           fi
 
-      - if: inputs.without_deploy != true
-        name: Deploy to Zhamao Server
+      - name: Deploy to Zhamao Server
         uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SERVER_SECRET_KEY }}
@@ -106,7 +98,7 @@ jobs:
           REMOTE_HOST: ${{ secrets.DEPLOY_SERVER_HOST }}
           REMOTE_PORT: ${{ secrets.DEPLOY_SERVER_PORT }}
           REMOTE_USER: ${{ secrets.DEPLOY_SERVER_USER }}
-          TARGET: ${{ secrets.DEPLOY_SERVER_TARGET }}
+          TARGET: ${{ secrets.DEPLOY_SERVER_TARGET_BULK }}
 
       - name: "Upload Artifact"
         uses: actions/upload-artifact@v3
