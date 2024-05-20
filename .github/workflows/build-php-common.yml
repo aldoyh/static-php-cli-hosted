@@ -24,7 +24,7 @@ jobs:
           - "8.3"
         operating-system:
           - "ubuntu-latest"
-          - "macos-latest"
+          - "macos-13"
           - "debian-arm64-self-hosted"
           - "macos-14"
         extensions:
@@ -40,7 +40,7 @@ jobs:
           OS=""
           if [ "${{ matrix.operating-system }}" = "ubuntu-latest" ]; then
               OS="linux-x86_64"
-          elif [ "${{ matrix.operating-system }}" = "macos-latest" ]; then
+          elif [ "${{ matrix.operating-system }}" = "macos-13" ]; then
               OS="macos-x86_64"
           elif [ "${{ matrix.operating-system }}" = "debian-arm64-self-hosted" ]; then
               OS="linux-aarch64"
@@ -50,7 +50,7 @@ jobs:
           echo "OS=$OS" >> $GITHUB_ENV
 
       - name: Download SPC bin artifact for self-hosted runners
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v3
         with:
           repo: crazywhalecc/static-php-cli
           branch: main
@@ -63,7 +63,7 @@ jobs:
           ./spc --version
 
       - id: cache-download
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: downloads
           key: php-${{ matrix.php-version }}-dependencies-for-common-extensions
@@ -109,7 +109,7 @@ jobs:
           TARGET: ${{ secrets.DEPLOY_SERVER_TARGET }}
 
       - name: "Upload Artifact"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: php-${{ matrix.php-version }}-${{ env.OS }}
           path: |
